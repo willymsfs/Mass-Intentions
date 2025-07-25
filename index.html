@@ -203,20 +203,6 @@
             color: #721c24;
         }
         
-        .add-entry-form {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
         .modal {
             display: none;
             position: fixed;
@@ -251,15 +237,18 @@
             color: black;
         }
         
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
         .export-options {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
             margin-top: 15px;
-        }
-        
-        .hidden {
-            display: none;
         }
         
         @media (max-width: 768px) {
@@ -381,11 +370,11 @@
                 </div>
                 <div class="control-group">
                     <label for="entryFrom">From Whom:</label>
-                    <input type="text" id="entryFrom" class="editable" placeholder="Provincial Superior">
+                    <input type="text" id="entryFrom" class="editable" value="Provincial Superior">
                 </div>
                 <div class="control-group">
                     <label for="entryIntention">Intentions:</label>
-                    <input type="text" id="entryIntention" class="editable" placeholder="General Intention">
+                    <input type="text" id="entryIntention" class="editable" value="General Intention">
                 </div>
                 <div class="control-group">
                     <label for="entryRemarks">Remarks:</label>
@@ -490,34 +479,38 @@
         
         // Initialize the application
         function init() {
-            loadSampleData();
+            loadFromLocalStorage();
+            if (massDatabase.daily.length === 0) {
+                loadSampleData();
+            }
             updateDisplay();
             updateStats();
         }
         
         // Load sample data
         function loadSampleData() {
-            // Sample daily masses
-            massDatabase.daily = [
-                {
-                    date: '01/01/2024',
-                    serial: 300,
+            // Sample daily masses for demonstration
+            const sampleData = [];
+            const startDate = new Date('2024-01-01');
+            
+            for (let i = 0; i < 31; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(startDate.getDate() + i);
+                
+                const dateStr = formatDateForDisplay(currentDate.toISOString().split('T')[0]);
+                
+                sampleData.push({
+                    date: dateStr,
+                    serial: 300 - i,
                     receiptDate: '08/23/2023',
                     from: 'Provincial Superior',
                     intention: 'General Intention',
-                    remarks: '',
-                    type: 'daily'
-                },
-                {
-                    date: '01/24/2024',
-                    serial: 277,
-                    receiptDate: '08/23/2023',
-                    from: 'Provincial Superior',
-                    intention: 'General Intention',
-                    remarks: 'SFS Feast Day Mass Celebrated',
-                    type: 'special'
-                }
-            ];
+                    remarks: i === 23 ? 'SFS Feast Day Mass Celebrated' : '',
+                    type: i === 23 ? 'special' : 'daily'
+                });
+            }
+            
+            massDatabase.daily = sampleData;
             
             // Sample deceased confreres
             massDatabase.deceased = [
@@ -556,6 +549,8 @@
                     type: 'personal'
                 }
             ];
+            
+            saveToLocalStorage();
         }
         
         // Update display based on selected filters
@@ -563,8 +558,6 @@
             const year = document.getElementById('yearSelect').value;
             const month = document.getElementById('monthSelect').value;
             const viewType = document.getElementById('viewType').value;
-            
-            const displayDiv = document.getElementById('dataDisplay');
             
             switch(viewType) {
                 case 'daily':
@@ -628,19 +621,20 @@
                 const existingEntry = massDatabase.daily.find(entry => entry.date === dateStr);
                 
                 const serial = existingEntry ? existingEntry.serial : '';
-                const receiptDate = existingEntry ? formatDateForDisplay(existingEntry.receiptDate) : '';
+                const receiptDate = existingEntry ? existingEntry.receiptDate : '';
                 const from = existingEntry ? existingEntry.from : '';
                 const intention = existingEntry ? existingEntry.intention : '';
                 const remarks = existingEntry ? existingEntry.remarks : '';
+                const rowClass = existingEntry && existingEntry.type === 'special' ? 'special-day' : '';
                 
                 html += `
-                    <tr>
+                    <tr class="${rowClass}">
                         <td>${dayStr}</td>
-                        <td class="editable-cell" data-field="serial" data-date="${dateStr}">${serial}</td>
-                        <td class="editable-cell" data-field="receiptDate" data-date="${dateStr}">${receiptDate}</td>
-                        <td class="editable-cell" data-field="from" data-date="${dateStr}">${from}</td>
-                        <td class="editable-cell" data-field="intention" data-date="${dateStr}">${intention}</td>
-                        <td class="editable-cell" data-field="remarks" data-date="${dateStr}">${remarks}</td>
+                        <td>${serial}</td>
+                        <td>${receiptDate}</td>
+                        <td>${from}</td>
+                        <td>${intention}</td>
+                        <td>${remarks}</td>
                         <td>
                             <button class="btn btn-primary" style="padding: 5px 10px; font-size: 0.8em;" onclick="editEntry('${dateStr}')">Edit</button>
                             <button class="btn btn-warning" style="padding: 5px 10px; font-size: 0.8em;" onclick="deleteEntry('${dateStr}')">Delete</button>
@@ -689,11 +683,11 @@
             
             filteredData.forEach(entry => {
                 html += `
-                    <tr>
-                        <td>${formatDateForDisplay(entry.receiptDate)}</td>
-                        <td>${formatDateForDisplay(entry.deathDate)}</td>
+                    <tr class="deceased-mass">
+                        <td>${entry.receiptDate}</td>
+                        <td>${entry.deathDate}</td>
                         <td>${entry.name}</td>
-                        <td>${formatDateForDisplay(entry.celebrated)}</td>
+                        <td>${entry.celebrated}</td>
                         <td>${entry.province || ''}</td>
                         <td>
                             <button class="btn btn-primary" style="padding: 5px 10px; font-size: 0.8em;" onclick="editDeceasedEntry('${entry.date}')">Edit</button>
@@ -738,9 +732,9 @@
             
             filteredData.forEach(entry => {
                 html += `
-                    <tr>
+                    <tr class="personal-intention">
                         <td>${entry.month}</td>
-                        <td>${formatDateForDisplay(entry.date)}</td>
+                        <td>${entry.date}</td>
                         <td>${entry.massNumber}</td>
                         <td>${entry.intention}</td>
                         <td>
@@ -762,13 +756,12 @@
         // Display summary
         function displaySummary(year, month) {
             const displayDiv = document.getElementById('dataDisplay');
-            
             const stats = calculateStats(year, month);
             
             let html = `
                 <div class="month-header">Summary Report (${year})</div>
-                <div class="summary-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
-                    <div class="summary-card" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <h3 style="color: #4facfe; margin-top: 0;">Mass Statistics</h3>
                         <p><strong>Total Daily Masses:</strong> ${stats.totalDaily}</p>
                         <p><strong>Personal Intention Masses:</strong> ${stats.totalPersonal}</p>
@@ -776,7 +769,7 @@
                         <p><strong>Total Masses Celebrated:</strong> ${stats.totalAll}</p>
                     </div>
                     
-                    <div class="summary-card" style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <h3 style="color: #4facfe; margin-top: 0;">Monthly Breakdown</h3>
                         <p><strong>Average per Month:</strong> ${(stats.totalAll / 12).toFixed(1)}</p>
                         <p><strong>Most Active Month:</strong> ${stats.mostActiveMonth}</p>
@@ -805,4 +798,448 @@
                 totalPersonal: personalCount,
                 totalDeceased: deceasedCount,
                 totalAll: dailyCount + personalCount + deceasedCount,
-                mostActiveMonth: 'January', // This would be calculated from actual data
+                mostActiveMonth: 'January',
+                specialOccasions: massDatabase.daily.filter(entry => entry.type === 'special').length
+            };
+        }
+        
+        // Update statistics display
+        function updateStats() {
+            const year = document.getElementById('yearSelect').value;
+            const stats = calculateStats(year, 'all');
+            
+            document.getElementById('totalMasses').textContent = stats.totalAll;
+            document.getElementById('celebratedMasses').textContent = stats.totalDaily;
+            document.getElementById('missedMasses').textContent = 0; // Calculate from actual data
+            document.getElementById('personalMasses').textContent = stats.totalPersonal;
+            document.getElementById('deceasedMasses').textContent = stats.totalDeceased;
+        }
+        
+        // Format date for display (MM/DD/YYYY)
+        function formatDateForDisplay(dateStr) {
+            if (!dateStr) return '';
+            // If already in MM/DD/YYYY format, return as is
+            if (dateStr.includes('/')) return dateStr;
+            // If in YYYY-MM-DD format, convert
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+                return `${parts[1]}/${parts[2]}/${parts[0]}`;
+            }
+            return dateStr;
+        }
+        
+        // Convert date from display format to storage format
+        function formatDateForStorage(dateStr) {
+            if (!dateStr) return '';
+            if (dateStr.includes('-')) return dateStr;
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+            }
+            return dateStr;
+        }
+        
+        // Show modal
+        function showModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+        }
+        
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        // Add new entry
+        function addNewEntry() {
+            // Clear form
+            document.getElementById('entryDate').value = '';
+            document.getElementById('entrySerial').value = '';
+            document.getElementById('entryReceiptDate').value = '';
+            document.getElementById('entryFrom').value = 'Provincial Superior';
+            document.getElementById('entryIntention').value = 'General Intention';
+            document.getElementById('entryRemarks').value = '';
+            document.getElementById('entryType').value = 'daily';
+            
+            showModal('addEntryModal');
+        }
+        
+        // Save entry
+        function saveEntry() {
+            const date = document.getElementById('entryDate').value;
+            const serial = document.getElementById('entrySerial').value;
+            const receiptDate = document.getElementById('entryReceiptDate').value;
+            const from = document.getElementById('entryFrom').value;
+            const intention = document.getElementById('entryIntention').value;
+            const remarks = document.getElementById('entryRemarks').value;
+            const type = document.getElementById('entryType').value;
+            
+            if (!date) {
+                alert('Please select a date');
+                return;
+            }
+            
+            const formattedDate = formatDateForDisplay(date);
+            
+            // Check if entry already exists
+            const existingIndex = massDatabase.daily.findIndex(entry => entry.date === formattedDate);
+            
+            const newEntry = {
+                date: formattedDate,
+                serial: parseInt(serial) || 0,
+                receiptDate: formatDateForDisplay(receiptDate),
+                from: from,
+                intention: intention,
+                remarks: remarks,
+                type: type
+            };
+            
+            if (existingIndex >= 0) {
+                massDatabase.daily[existingIndex] = newEntry;
+            } else {
+                massDatabase.daily.push(newEntry);
+            }
+            
+            // Save to localStorage
+            saveToLocalStorage();
+            
+            closeModal('addEntryModal');
+            updateDisplay();
+            
+            alert('Entry saved successfully!');
+        }
+        
+        // Edit entry
+        function editEntry(dateStr) {
+            const entry = massDatabase.daily.find(e => e.date === dateStr);
+            if (entry) {
+                document.getElementById('entryDate').value = formatDateForStorage(entry.date);
+                document.getElementById('entrySerial').value = entry.serial;
+                document.getElementById('entryReceiptDate').value = formatDateForStorage(entry.receiptDate);
+                document.getElementById('entryFrom').value = entry.from;
+                document.getElementById('entryIntention').value = entry.intention;
+                document.getElementById('entryRemarks').value = entry.remarks;
+                document.getElementById('entryType').value = entry.type || 'daily';
+                
+                showModal('addEntryModal');
+            }
+        }
+        
+        // Delete entry
+        function deleteEntry(dateStr) {
+            if (confirm('Are you sure you want to delete this entry?')) {
+                massDatabase.daily = massDatabase.daily.filter(entry => entry.date !== dateStr);
+                saveToLocalStorage();
+                updateDisplay();
+            }
+        }
+        
+        // Edit deceased entry
+        function editDeceasedEntry(dateStr) {
+            alert('Edit deceased entry functionality - to be implemented in next update');
+        }
+        
+        // Delete deceased entry
+        function deleteDeceasedEntry(dateStr) {
+            if (confirm('Are you sure you want to delete this deceased confrere entry?')) {
+                massDatabase.deceased = massDatabase.deceased.filter(entry => entry.date !== dateStr);
+                saveToLocalStorage();
+                updateDisplay();
+            }
+        }
+        
+        // Edit personal entry
+        function editPersonalEntry(dateStr) {
+            alert('Edit personal entry functionality - to be implemented in next update');
+        }
+        
+        // Delete personal entry
+        function deletePersonalEntry(dateStr) {
+            if (confirm('Are you sure you want to delete this personal intention entry?')) {
+                massDatabase.personal = massDatabase.personal.filter(entry => entry.date !== dateStr);
+                saveToLocalStorage();
+                updateDisplay();
+            }
+        }
+        
+        // Save to localStorage
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem('massIntentionData', JSON.stringify(massDatabase));
+                console.log('Data saved to localStorage');
+            } catch (error) {
+                console.error('Error saving to localStorage:', error);
+                alert('Error saving data. Please try again.');
+            }
+        }
+        
+        // Load from localStorage
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('massIntentionData');
+                if (saved) {
+                    massDatabase = JSON.parse(saved);
+                    console.log('Data loaded from localStorage');
+                }
+            } catch (error) {
+                console.error('Error loading from localStorage:', error);
+                // Initialize with empty data if there's an error
+                massDatabase = { daily: [], deceased: [], personal: [] };
+            }
+        }
+        
+        // Upload database
+        function uploadDatabase() {
+            document.getElementById('fileInput').click();
+        }
+        
+        // Handle file upload
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Process each sheet
+                    const sheetNames = workbook.SheetNames;
+                    let importedData = { daily: [], deceased: [], personal: [] };
+                    
+                    sheetNames.forEach(sheetName => {
+                        const worksheet = workbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                        
+                        if (sheetName.toLowerCase().includes('deceased')) {
+                            importedData.deceased = jsonData.map(row => ({
+                                date: formatDateForDisplay(row['Date'] || row['When Celebrated'] || ''),
+                                receiptDate: formatDateForDisplay(row['Date of Receipt'] || ''),
+                                deathDate: formatDateForDisplay(row['Date of Death'] || ''),
+                                name: row['Name of Deceased'] || row['NAME OF THE DECEASED'] || '',
+                                celebrated: formatDateForDisplay(row['When Celebrated'] || ''),
+                                province: row['Province'] || ''
+                            }));
+                        } else if (sheetName.toLowerCase().includes('personal')) {
+                            importedData.personal = jsonData.map(row => ({
+                                date: formatDateForDisplay(row['Date'] || ''),
+                                month: row['Month'] || '',
+                                massNumber: row['Mass Number'] || 1,
+                                intention: row['Intention'] || row['Remarks'] || '',
+                                type: 'personal'
+                            }));
+                        } else {
+                            // Daily masses
+                            importedData.daily = jsonData.map(row => ({
+                                date: formatDateForDisplay(row['Date'] || ''),
+                                serial: parseInt(row['Serial No.'] || row['Serial No'] || 0),
+                                receiptDate: formatDateForDisplay(row['Date of Receipt'] || ''),
+                                from: row['From Whom'] || 'Provincial Superior',
+                                intention: row['Intentions'] || 'General Intention',
+                                remarks: row['Remarks'] || '',
+                                type: row['Type'] || 'daily'
+                            }));
+                        }
+                    });
+                    
+                    // Merge with existing data
+                    massDatabase.daily = [...massDatabase.daily, ...importedData.daily];
+                    massDatabase.deceased = [...massDatabase.deceased, ...importedData.deceased];
+                    massDatabase.personal = [...massDatabase.personal, ...importedData.personal];
+                    
+                    // Remove duplicates
+                    massDatabase.daily = removeDuplicates(massDatabase.daily, 'date');
+                    massDatabase.deceased = removeDuplicates(massDatabase.deceased, 'date');
+                    massDatabase.personal = removeDuplicates(massDatabase.personal, 'date');
+                    
+                    saveToLocalStorage();
+                    updateDisplay();
+                    
+                    alert('Database uploaded successfully!');
+                    
+                } catch (error) {
+                    console.error('Error reading file:', error);
+                    alert('Error reading file: ' + error.message);
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+        
+        // Remove duplicates from array
+        function removeDuplicates(array, key) {
+            return array.filter((item, index, self) =>
+                index === self.findIndex(t => t[key] === item[key])
+            );
+        }
+        
+        // Show export options
+        function showExportOptions() {
+            const currentYear = document.getElementById('yearSelect').value;
+            const currentMonth = document.getElementById('monthSelect').value;
+            
+            document.getElementById('exportYear').value = currentYear;
+            document.getElementById('exportMonth').value = currentMonth;
+            
+            showModal('exportModal');
+        }
+        
+        // Export data
+        function exportData() {
+            const year = document.getElementById('exportYear').value;
+            const month = document.getElementById('exportMonth').value;
+            const format = document.getElementById('exportFormat').value;
+            
+            // Get selected columns
+            const selectedColumns = [];
+            if (document.getElementById('col_date').checked) selectedColumns.push('date');
+            if (document.getElementById('col_serial').checked) selectedColumns.push('serial');
+            if (document.getElementById('col_receipt').checked) selectedColumns.push('receiptDate');
+            if (document.getElementById('col_from').checked) selectedColumns.push('from');
+            if (document.getElementById('col_intention').checked) selectedColumns.push('intention');
+            if (document.getElementById('col_remarks').checked) selectedColumns.push('remarks');
+            
+            // Filter data
+            let exportData = {
+                daily: massDatabase.daily,
+                deceased: massDatabase.deceased,
+                personal: massDatabase.personal
+            };
+            
+            if (year !== 'all') {
+                exportData.daily = exportData.daily.filter(entry => entry.date.includes(year));
+                exportData.deceased = exportData.deceased.filter(entry => entry.date.includes(year));
+                exportData.personal = exportData.personal.filter(entry => entry.date.includes(year));
+            }
+            
+            if (month !== 'all') {
+                const monthStr = String(month).padStart(2, '0');
+                exportData.daily = exportData.daily.filter(entry => entry.date.startsWith(monthStr));
+                exportData.deceased = exportData.deceased.filter(entry => entry.date.startsWith(monthStr));
+                exportData.personal = exportData.personal.filter(entry => entry.date.startsWith(monthStr));
+            }
+            
+            if (format === 'xlsx') {
+                exportToExcel(exportData, selectedColumns, year, month);
+            } else if (format === 'csv') {
+                exportToCSV(exportData, selectedColumns, year, month);
+            } else if (format === 'json') {
+                exportToJSON(exportData, selectedColumns, year, month);
+            }
+            
+            closeModal('exportModal');
+        }
+        
+        // Export to Excel
+        function exportToExcel(data, columns, year, month) {
+            const wb = XLSX.utils.book_new();
+            
+            // Daily masses sheet
+            if (data.daily.length > 0) {
+                const dailyData = data.daily.map(entry => {
+                    const row = {};
+                    if (columns.includes('date')) row['Date'] = entry.date;
+                    if (columns.includes('serial')) row['Serial No.'] = entry.serial;
+                    if (columns.includes('receiptDate')) row['Date of Receipt'] = entry.receiptDate;
+                    if (columns.includes('from')) row['From Whom'] = entry.from;
+                    if (columns.includes('intention')) row['Intentions'] = entry.intention;
+                    if (columns.includes('remarks')) row['Remarks'] = entry.remarks;
+                    return row;
+                });
+                
+                const ws1 = XLSX.utils.json_to_sheet(dailyData);
+                XLSX.utils.book_append_sheet(wb, ws1, "Daily Masses");
+            }
+            
+            // Deceased confreres sheet
+            if (data.deceased.length > 0) {
+                const ws2 = XLSX.utils.json_to_sheet(data.deceased.map(entry => ({
+                    'Date of Receipt': entry.receiptDate,
+                    'Date of Death': entry.deathDate,
+                    'Name of Deceased': entry.name,
+                    'When Celebrated': entry.celebrated,
+                    'Province': entry.province
+                })));
+                XLSX.utils.book_append_sheet(wb, ws2, "Deceased Confreres");
+            }
+            
+            // Personal intentions sheet
+            if (data.personal.length > 0) {
+                const ws3 = XLSX.utils.json_to_sheet(data.personal.map(entry => ({
+                    'Month': entry.month,
+                    'Date': entry.date,
+                    'Mass Number': entry.massNumber,
+                    'Intention': entry.intention
+                })));
+                XLSX.utils.book_append_sheet(wb, ws3, "Personal Intentions");
+            }
+            
+            const filename = `Mass_Intentions_${year}_${month === 'all' ? 'All_Months' : monthNames[month-1]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+        }
+        
+        // Export to CSV
+        function exportToCSV(data, columns, year, month) {
+            let csvContent = '';
+            
+            // Headers
+            const headers = [];
+            if (columns.includes('date')) headers.push('Date');
+            if (columns.includes('serial')) headers.push('Serial No.');
+            if (columns.includes('receiptDate')) headers.push('Date of Receipt');
+            if (columns.includes('from')) headers.push('From Whom');
+            if (columns.includes('intention')) headers.push('Intentions');
+            if (columns.includes('remarks')) headers.push('Remarks');
+            
+            csvContent += headers.join(',') + '\n';
+            
+            // Data rows
+            data.daily.forEach(entry => {
+                const row = [];
+                if (columns.includes('date')) row.push(entry.date);
+                if (columns.includes('serial')) row.push(entry.serial);
+                if (columns.includes('receiptDate')) row.push(entry.receiptDate);
+                if (columns.includes('from')) row.push(entry.from);
+                if (columns.includes('intention')) row.push(entry.intention);
+                if (columns.includes('remarks')) row.push(entry.remarks);
+                csvContent += row.join(',') + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Mass_Intentions_${year}_${month === 'all' ? 'All_Months' : monthNames[month-1]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+        
+        // Export to JSON
+        function exportToJSON(data, columns, year, month) {
+            const jsonData = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Mass_Intentions_${year}_${month === 'all' ? 'All_Months' : monthNames[month-1]}.json`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+        
+        // Initialize app when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+            
+            // Close modals when clicking outside
+            window.onclick = function(event) {
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(modal => {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
